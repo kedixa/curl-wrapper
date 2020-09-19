@@ -64,7 +64,8 @@ static int sockopt_callback(void *clientp, curl_socket_t curlfd, curlsocktype pu
     (void)clientp;
     (void)purpose;
     int reuse = 1;
-    int ret = setsockopt(curlfd, SOL_SOCKET, SO_REUSEADDR, (const void *)&reuse, sizeof(reuse));
+    int ret = 0;
+    // ret = setsockopt(curlfd, SOL_SOCKET, SO_REUSEADDR, (const void *)&reuse, sizeof(reuse));
     if(ret == -1) {
         return CURL_SOCKOPT_ERROR;
     }
@@ -442,6 +443,9 @@ void CurlWrapper::run(size_t index) {
     curl_multi_setopt(info.multi_handle, CURLMOPT_SOCKETDATA, &info);
     curl_multi_setopt(info.multi_handle, CURLMOPT_TIMERFUNCTION, multi_timer_callback);
     curl_multi_setopt(info.multi_handle, CURLMOPT_TIMERDATA, &info);
+    if(make_multihandle_cb) {
+        make_multihandle_cb(info.multi_handle);
+    }
     while(running || info.handling_cnt != 0 || request_queue_cnt != 0) {
         bool should_wait = true;
         int err = epoll_wait(info.epfd, events, sizeof(events)/sizeof(struct epoll_event), 10);

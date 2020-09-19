@@ -21,7 +21,11 @@ public:
     using request_finish_callback_t = std::function<void(CurlWrapper::Session*, CURL*)>;
     using make_handle_callback_t = std::function<void(CurlWrapper::Session*, CURL*)>;
     using retry_if_callback_t = std::function<bool(CurlWrapper::Session*, CURL*)>;
-    // helper function to handle multi thread curl
+    using make_multihandle_callback_t = std::function<void(CURLM *)>;
+    /**
+     * Helper function to handle multi thread curl,
+     * you are not suggested to use these functions
+     */
     static CURL* make_handle(CurlWrapper::Session *);
     static void rmsocket(SocketInfo *, HandlerInfo*);
     static void setsocket(SocketInfo*, curl_socket_t, CURL*, int, HandlerInfo*);
@@ -33,6 +37,10 @@ public:
     static void event_callback(HandlerInfo*, int, int);
     static void locking_function(int, int, const char*, int);
 
+    /**
+     * Make and return a session for async curl request,
+     * now it is just a new operation.
+     */
     static Session* make_session() {
         return new Session();
     }
@@ -60,6 +68,9 @@ public:
         std::vector<std::string> headers;
         std::string body;
     };
+    /**
+     * Session is a class to manage one request and its response.
+     */
     class Session {
     private:
         Request req;
@@ -85,7 +96,9 @@ public:
         ~Session();
         Request *get_req() { return &req; }
         Result *get_res() { return &res; }
+        // cb will be called when the request is finished
         void set_finish_callback(request_finish_callback_t &&cb) { finish_cb = std::move(cb); }
+        // You can use set and get context to save a pointer value in this session.
         void set_context(void *ctx) { context = ctx; }
         void *get_context() const { return context; }
         long get_retry_cnt() const { return retry_cnt; }
@@ -111,11 +124,18 @@ public:
     size_t get_request_queue_size() const {
         return request_queue_cnt;
     }
+    // This cb will be called just before we use this curl easy handle
     void set_make_handle_callback(make_handle_callback_t &&cb) {
         make_handle_cb = std::move(cb);
     }
+    // This cb will be called after the request is done
     void set_retry_if_callback(retry_if_callback_t &&cb) {
         retry_if_cb = std::move(cb);
+    }
+    // This cb will be called at CurlWrapper::start, before handling requests,
+    // in multi thread without locks
+    void set_multihandle_callback(make_multihandle_callback_t &&cb) {
+        make_multihandle_cb = std::move(cb);
     }
 private:
     Session* get_request();
@@ -135,6 +155,7 @@ private:
     // callback
     make_handle_callback_t make_handle_cb;
     retry_if_callback_t retry_if_cb;
+    make_multihandle_callback_t make_multihandle_cb;
 };
 } // namespace kedixa
 #endif // CURL_WRAPPER_HPP
