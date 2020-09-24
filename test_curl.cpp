@@ -1,4 +1,5 @@
 #include "curl_wrapper.hpp"
+#include "signal.h"
 #include <iostream>
 #include <atomic>
 #include <thread>
@@ -48,20 +49,21 @@ void test_get(CurlWrapper &w, string url) {
     w.put_request(s);
 }
 int main() {
+    signal(SIGPIPE, SIG_IGN);
     CurlWrapper w(2, 80);
     w.set_make_handle_callback([](CurlWrapper::Session *, CURL*){
         cout << "make handle callback" << endl;
     });
     w.set_multihandle_callback([](CURLM *multi) {
-        curl_multi_setopt(multi, CURLMOPT_MAX_HOST_CONNECTIONS, 50L);
-        curl_multi_setopt(multi, CURLMOPT_MAX_TOTAL_CONNECTIONS, 300L);
-        curl_multi_setopt(multi, CURLMOPT_MAXCONNECTS, 1000L);
+        curl_multi_setopt(multi, CURLMOPT_MAX_HOST_CONNECTIONS, 30L);
+        curl_multi_setopt(multi, CURLMOPT_MAX_TOTAL_CONNECTIONS, 100L);
+        curl_multi_setopt(multi, CURLMOPT_MAXCONNECTS, 100L);
     });
     w.set_retry_if_callback(retry_if_callback);
     w.start();
     string url;
     while(cin >> url) {
-        if(w.get_request_queue_size() > 1000000) {
+        while(w.get_request_queue_size() > 1000) {
             this_thread::sleep_for(chrono::milliseconds(10));
         }
         // add request to w
